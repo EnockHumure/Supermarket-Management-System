@@ -115,26 +115,47 @@ public class UserDao {
     public User findUserByUsername(String username) {
         Session ss = null;
         try {
+            System.out.println("[UserDao] findUserByUsername called with: " + username);
             ss = HibernateUtil.getSessionFactory().openSession();
-            // Case-insensitive username search
-            Query query = ss.createQuery("FROM User u WHERE LOWER(u.username) = LOWER(:username)");
-            query.setParameter("username", username);
-            User user = (User) query.uniqueResult();
+            System.out.println("[UserDao] Session opened successfully");
             
-            if (user != null) {
-                System.out.println("Found user: " + user.getUsername() + " (searched for: " + username + ")");
+            // Use native SQL to avoid lazy loading issues
+            Object[] result = (Object[]) ss.createSQLQuery(
+                "SELECT user_id, username, password_hash, full_name, email, role, is_active " +
+                "FROM users WHERE LOWER(username) = LOWER(:username)"
+            )
+            .setParameter("username", username)
+            .uniqueResult();
+            
+            if (result != null) {
+                User user = new User();
+                user.setUserId(((Number) result[0]).longValue());
+                user.setUsername((String) result[1]);
+                user.setPasswordHash((String) result[2]);
+                user.setFullName((String) result[3]);
+                user.setEmail((String) result[4]);
+                user.setRole(model.ERole.valueOf((String) result[5]));
+                user.setIsActive((Boolean) result[6]);
+                
+                System.out.println("[UserDao] User details - Username: " + user.getUsername() + ", Role: " + user.getRole() + ", Active: " + user.getIsActive());
+                ss.close();
+                return user;
             } else {
-                System.out.println("User not found: " + username);
+                System.out.println("[UserDao] User not found: " + username);
+                ss.close();
+                return null;
             }
-            
-            return user;
         } catch (Exception ex) {
-            System.err.println("Error finding user: " + ex.getMessage());
+            System.err.println("[UserDao] ERROR finding user: " + ex.getMessage());
             ex.printStackTrace();
             return null;
         } finally {
             if (ss != null && ss.isOpen()) {
-                ss.close();
+                try {
+                    ss.close();
+                } catch (Exception e) {
+                    System.err.println("[UserDao] Error closing session: " + e.getMessage());
+                }
             }
         }
     }
@@ -143,25 +164,45 @@ public class UserDao {
         Session ss = null;
         try {
             ss = HibernateUtil.getSessionFactory().openSession();
-            // Case-insensitive username search for login
-            Query query = ss.createQuery("FROM User u WHERE LOWER(u.username) = LOWER(:username)");
-            query.setParameter("username", username);
-            User user = (User) query.uniqueResult();
+            System.out.println("[UserDao] findUserForLogin - Opening session for: " + username);
             
-            if (user != null) {
-                System.out.println("Login attempt for user: " + user.getUsername() + " (Role: " + user.getRole() + ")");
+            // Use native SQL to avoid lazy loading issues
+            Object[] result = (Object[]) ss.createSQLQuery(
+                "SELECT user_id, username, password_hash, full_name, email, role, is_active " +
+                "FROM users WHERE LOWER(username) = LOWER(:username)"
+            )
+            .setParameter("username", username)
+            .uniqueResult();
+            
+            if (result != null) {
+                User user = new User();
+                user.setUserId(((Number) result[0]).longValue());
+                user.setUsername((String) result[1]);
+                user.setPasswordHash((String) result[2]);
+                user.setFullName((String) result[3]);
+                user.setEmail((String) result[4]);
+                user.setRole(model.ERole.valueOf((String) result[5]));
+                user.setIsActive((Boolean) result[6]);
+                
+                System.out.println("[UserDao] User found: " + user.getUsername() + " (Role: " + user.getRole() + ")");
+                ss.close();
+                return user;
             } else {
-                System.out.println("Login failed - User not found: " + username);
+                System.out.println("[UserDao] User not found: " + username);
+                ss.close();
+                return null;
             }
-            
-            return user;
         } catch (Exception ex) {
-            System.err.println("Error finding user for login: " + ex.getMessage());
+            System.err.println("[UserDao] ERROR finding user for login: " + ex.getMessage());
             ex.printStackTrace();
             return null;
         } finally {
             if (ss != null && ss.isOpen()) {
-                ss.close();
+                try {
+                    ss.close();
+                } catch (Exception e) {
+                    System.err.println("[UserDao] Error closing session: " + e.getMessage());
+                }
             }
         }
     }
@@ -203,14 +244,18 @@ public class UserDao {
     // Account lockout methods
     public void incrementFailedLoginAttempt(String username) {
         Session ss = null;
+        Transaction tr = null;
         try {
             ss = HibernateUtil.getSessionFactory().openSession();
-            Transaction tr = ss.beginTransaction();
-            Query query = ss.createQuery("UPDATE User SET failedLoginAttempts = failedLoginAttempts + 1 WHERE LOWER(username) = LOWER(:username)");
-            query.setParameter("username", username);
-            int updated = query.executeUpdate();
+            tr = ss.beginTransaction();
+            ss.createSQLQuery(
+                "UPDATE users SET failed_login_attempts = COALESCE(failed_login_attempts, 0) + 1 WHERE LOWER(username) = LOWER(:username)"
+            )
+            .setParameter("username", username)
+            .executeUpdate();
             tr.commit();
         } catch (Exception ex) {
+            if (tr != null) tr.rollback();
             ex.printStackTrace();
         } finally {
             if (ss != null && ss.isOpen()) {
@@ -221,14 +266,18 @@ public class UserDao {
     
     public void resetFailedLoginAttempt(String username) {
         Session ss = null;
+        Transaction tr = null;
         try {
             ss = HibernateUtil.getSessionFactory().openSession();
-            Transaction tr = ss.beginTransaction();
-            Query query = ss.createQuery("UPDATE User SET failedLoginAttempts = 0 WHERE LOWER(username) = LOWER(:username)");
-            query.setParameter("username", username);
-            int updated = query.executeUpdate();
+            tr = ss.beginTransaction();
+            ss.createSQLQuery(
+                "UPDATE users SET failed_login_attempts = 0 WHERE LOWER(username) = LOWER(:username)"
+            )
+            .setParameter("username", username)
+            .executeUpdate();
             tr.commit();
         } catch (Exception ex) {
+            if (tr != null) tr.rollback();
             ex.printStackTrace();
         } finally {
             if (ss != null && ss.isOpen()) {
@@ -241,10 +290,14 @@ public class UserDao {
         Session ss = null;
         try {
             ss = HibernateUtil.getSessionFactory().openSession();
-            Query query = ss.createQuery("SELECT u.failedLoginAttempts FROM User u WHERE LOWER(u.username) = LOWER(:username)");
-            query.setParameter("username", username);
-            Integer attempts = (Integer) query.uniqueResult();
-            return attempts != null && attempts >= 3;
+            Object result = ss.createSQLQuery(
+                "SELECT failed_login_attempts FROM users WHERE LOWER(username) = LOWER(:username)"
+            )
+            .setParameter("username", username)
+            .uniqueResult();
+            
+            Integer attempts = result != null ? ((Number) result).intValue() : 0;
+            return attempts >= 3;
         } catch (Exception ex) {
             ex.printStackTrace();
             return false;
@@ -257,30 +310,32 @@ public class UserDao {
     
     public void generateOtp(String username) {
         Session ss = null;
+        Transaction tr = null;
         try {
             ss = HibernateUtil.getSessionFactory().openSession();
-            Transaction tr = ss.beginTransaction();
+            tr = ss.beginTransaction();
             
             // Generate 6-digit OTP
             int otp = (int)(Math.random() * 900000) + 100000;
             Date expiresAt = new Date(System.currentTimeMillis() + 5 * 60 * 1000); // 5 minutes
             
-            Query query = ss.createQuery("UPDATE User SET otpCode = :otp, otpExpiresAt = :expires WHERE LOWER(username) = LOWER(:username)");
-            query.setParameter("otp", String.valueOf(otp));
-            query.setParameter("expires", expiresAt);
-            query.setParameter("username", username);
-            int updated = query.executeUpdate();
+            ss.createSQLQuery(
+                "UPDATE users SET otp_code = :otp, otp_expires_at = :expires WHERE LOWER(username) = LOWER(:username)"
+            )
+            .setParameter("otp", String.valueOf(otp))
+            .setParameter("expires", expiresAt)
+            .setParameter("username", username)
+            .executeUpdate();
             
             tr.commit();
             
-            if (updated > 0) {
-                System.out.println("\n========================================");
-                System.out.println("OTP GENERATED FOR: " + username);
-                System.out.println("OTP CODE: " + otp);
-                System.out.println("EXPIRES AT: " + expiresAt);
-                System.out.println("========================================\n");
-            }
+            System.out.println("\n========================================");
+            System.out.println("OTP GENERATED FOR: " + username);
+            System.out.println("OTP CODE: " + otp);
+            System.out.println("EXPIRES AT: " + expiresAt);
+            System.out.println("========================================\n");
         } catch (Exception ex) {
+            if (tr != null) tr.rollback();
             System.err.println("ERROR generating OTP: " + ex.getMessage());
             ex.printStackTrace();
         } finally {
@@ -292,20 +347,24 @@ public class UserDao {
     
     public void saveOtp(String username, String otp) {
         Session ss = null;
+        Transaction tr = null;
         try {
             ss = HibernateUtil.getSessionFactory().openSession();
-            Transaction tr = ss.beginTransaction();
+            tr = ss.beginTransaction();
             
             Date expiresAt = new Date(System.currentTimeMillis() + 5 * 60 * 1000); // 5 minutes
             
-            Query query = ss.createQuery("UPDATE User SET otpCode = :otp, otpExpiresAt = :expires WHERE LOWER(username) = LOWER(:username)");
-            query.setParameter("otp", otp);
-            query.setParameter("expires", expiresAt);
-            query.setParameter("username", username);
-            query.executeUpdate();
+            ss.createSQLQuery(
+                "UPDATE users SET otp_code = :otp, otp_expires_at = :expires WHERE LOWER(username) = LOWER(:username)"
+            )
+            .setParameter("otp", otp)
+            .setParameter("expires", expiresAt)
+            .setParameter("username", username)
+            .executeUpdate();
             
             tr.commit();
         } catch (Exception ex) {
+            if (tr != null) tr.rollback();
             System.err.println("ERROR saving OTP: " + ex.getMessage());
             ex.printStackTrace();
         } finally {
@@ -317,46 +376,58 @@ public class UserDao {
     
     public boolean verifyOtp(String username, String otp) {
         Session ss = null;
+        Transaction tr = null;
         try {
             ss = HibernateUtil.getSessionFactory().openSession();
+            tr = ss.beginTransaction();
             
-            // Get user with OTP info (case-insensitive)
-            Query query = ss.createQuery("FROM User WHERE LOWER(username) = LOWER(:username)");
-            query.setParameter("username", username);
-            User user = (User) query.uniqueResult();
+            // Use native SQL to get OTP info
+            Object[] result = (Object[]) ss.createSQLQuery(
+                "SELECT otp_code, otp_expires_at FROM users WHERE LOWER(username) = LOWER(:username)"
+            )
+            .setParameter("username", username)
+            .uniqueResult();
             
-            if (user == null) {
+            if (result == null) {
                 System.out.println("OTP verification FAILED: User not found - " + username);
                 return false;
             }
             
-            if (user.getOtpCode() == null) {
+            String storedOtp = (String) result[0];
+            Date expiresAt = (Date) result[1];
+            
+            if (storedOtp == null) {
                 System.out.println("OTP verification FAILED: No OTP found for user - " + username);
                 return false;
             }
             
             // Check if OTP expired
             Date now = new Date();
-            if (now.after(user.getOtpExpiresAt())) {
+            if (expiresAt != null && now.after(expiresAt)) {
                 System.out.println("OTP verification FAILED: OTP expired for - " + username);
                 return false;
             }
             
             // Verify OTP
-            boolean valid = user.getOtpCode().equals(otp);
+            boolean valid = storedOtp.equals(otp);
             
             if (valid) {
                 System.out.println("OTP verification SUCCESSFUL for " + username);
-                // Clear OTP after verification
-                Query clearQuery = ss.createQuery("UPDATE User SET otpCode = null, otpExpiresAt = null WHERE LOWER(username) = LOWER(:username)");
-                clearQuery.setParameter("username", username);
-                clearQuery.executeUpdate();
+                // Clear OTP after verification using native SQL
+                ss.createSQLQuery(
+                    "UPDATE users SET otp_code = NULL, otp_expires_at = NULL WHERE LOWER(username) = LOWER(:username)"
+                )
+                .setParameter("username", username)
+                .executeUpdate();
+                tr.commit();
             } else {
-                System.out.println("OTP verification FAILED: Invalid OTP for " + username + ". Expected: " + user.getOtpCode() + ", Got: " + otp);
+                System.out.println("OTP verification FAILED: Invalid OTP for " + username);
+                tr.rollback();
             }
             
             return valid;
         } catch (Exception ex) {
+            if (tr != null) tr.rollback();
             System.err.println("ERROR verifying OTP: " + ex.getMessage());
             ex.printStackTrace();
             return false;
@@ -369,17 +440,21 @@ public class UserDao {
     
     public void setPassword(String username, String password) {
         Session ss = null;
+        Transaction tr = null;
         try {
             ss = HibernateUtil.getSessionFactory().openSession();
-            Transaction tr = ss.beginTransaction();
+            tr = ss.beginTransaction();
             
-            Query query = ss.createQuery("UPDATE User SET passwordHash = :password WHERE LOWER(username) = LOWER(:username)");
-            query.setParameter("password", password);
-            query.setParameter("username", username);
-            query.executeUpdate();
+            ss.createSQLQuery(
+                "UPDATE users SET password_hash = :password WHERE LOWER(username) = LOWER(:username)"
+            )
+            .setParameter("password", password)
+            .setParameter("username", username)
+            .executeUpdate();
             
             tr.commit();
         } catch (Exception ex) {
+            if (tr != null) tr.rollback();
             System.err.println("ERROR setting password: " + ex.getMessage());
             ex.printStackTrace();
         } finally {

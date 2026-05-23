@@ -16,6 +16,19 @@ public class ProductServiceImpl extends UnicastRemoteObject implements ProductSe
     
     @Override
     public Product registerProductRecord(Product theProduct) throws RemoteException {
+        // Auto-generate barcode if empty or set to AUTO
+        if (theProduct.getBarcode() == null || 
+            theProduct.getBarcode().trim().isEmpty() || 
+            theProduct.getBarcode().equals("AUTO")) {
+            try {
+                // Get the next available barcode number
+                String barcode = dao.generateNextBarcode();
+                theProduct.setBarcode(barcode);
+                System.out.println("✓ Auto-generated barcode: " + barcode + " for product: " + theProduct.getName());
+            } catch (Exception ex) {
+                throw new RemoteException("Error generating barcode: " + ex.getMessage());
+            }
+        }
         return dao.registerProduct(theProduct);
     }
 

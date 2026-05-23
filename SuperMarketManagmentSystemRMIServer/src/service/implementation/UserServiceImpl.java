@@ -7,6 +7,7 @@ import java.util.List;
 import model.User;
 import service.UserService;
 import util.EmailOTPUtil;
+import util.SessionManager;
 
 public class UserServiceImpl extends UnicastRemoteObject implements UserService {
 
@@ -168,6 +169,65 @@ public class UserServiceImpl extends UnicastRemoteObject implements UserService 
             dao.setPassword(username, password);
         } catch (Exception ex) {
             throw new RemoteException("Error setting password: " + ex.getMessage());
+        }
+    }
+    
+    @Override
+    public String loginWithSession(String username, String password) throws RemoteException {
+        System.out.println("[UserServiceImpl] loginWithSession called for: " + username);
+        try {
+            System.out.println("[UserServiceImpl] Finding user for login...");
+            User user = dao.findUserForLogin(username);
+            System.out.println("[UserServiceImpl] User found: " + (user != null ? user.getUsername() : "NULL"));
+            
+            if (user != null && user.getIsActive()) {
+                if (password.equals(user.getPasswordHash())) {
+                    System.out.println("[UserServiceImpl] Password verified, creating session...");
+                    
+                    // Create session FIRST
+                    String sessionId = SessionManager.createSession(user);
+                    System.out.println("[UserServiceImpl] Session created: " + sessionId);
+                    
+                    // Reset failed attempts asynchronously (don't block login)
+                    new Thread(() -> {
+                        try {
+                            System.out.println("[UserServiceImpl] Resetting failed attempts in background...");
+                            dao.resetFailedLoginAttempt(username);
+                        } catch (Exception e) {
+                            System.err.println("[UserServiceImpl] Error resetting failed attempts: " + e.getMessage());
+                        }
+                    }).start();
+                    
+                    System.out.println("✓ User logged in: " + username + " (Session: " + sessionId + ")");
+                    return sessionId;
+                }
+            }
+            
+            System.out.println("[UserServiceImpl] Authentication failed");
+            return null;
+        } catch (Exception ex) {
+            System.err.println("[UserServiceImpl] Login error: " + ex.getMessage());
+            ex.printStackTrace();
+            throw new RemoteException("Login failed: " + ex.getMessage());
+        }
+    }
+    
+    @Override
+    public void logout(String sessionId) throws RemoteException {
+        try {
+            SessionManager.invalidateSession(sessionId);
+            System.out.println("✓ User logged out (Session: " + sessionId + ")");
+        } catch (Exception ex) {
+            throw new RemoteException("Error logging out: " + ex.getMessage());
+        }
+    }
+    
+    @Override
+    public User validateSession(String sessionId) throws RemoteException {
+        try {
+            return SessionManager.validateSession(sessionId);
+        } catch (Exception ex) {
+            throw new RemoteException("Error validating session: " + ex.getMessage());
         }
     }
 }

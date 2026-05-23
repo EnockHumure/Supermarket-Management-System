@@ -11,11 +11,16 @@
     <property name="hibernate.connection.password">Mataru@8</property>
     <property name="hibernate.show_sql">true</property>
     <property name="hibernate.hbm2ddl.auto">update</property>
+    
+    <!-- Connection timeout settings -->
+    <property name="hibernate.connection.provider_disables_autocommit">false</property>
+    <property name="hibernate.connection.autocommit">false</property>
     <mapping class="model.User"/>
     <mapping class="model.UserProfile"/>
     <mapping class="model.Category"/>
     <mapping class="model.Product"/>
     <mapping class="model.Sale"/>
     <mapping class="model.SaleItem"/>
+    <mapping class="model.Session"/>
   </session-factory>
 </hibernate-configuration>

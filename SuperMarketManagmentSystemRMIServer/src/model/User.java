@@ -48,10 +48,10 @@ public class User implements Serializable {
     @Column(name = "otp_expires_at")
     private Date otpExpiresAt;
     
-    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.EAGER)
+    @OneToOne(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private UserProfile userProfile;
     
-    @OneToMany(mappedBy = "cashier", fetch = FetchType.EAGER)
+    @OneToMany(mappedBy = "cashier", fetch = FetchType.LAZY)
     private Set<Sale> sales = new HashSet<>();
 
     public User() {

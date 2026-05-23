@@ -84,7 +84,16 @@ public class SaleServiceImpl extends UnicastRemoteObject implements SaleService 
                 }
             }
             
-            sale.setTotalAmount(calculateTotal(saleItems));
+            // If totalAmount not set, calculate it
+            if (sale.getTotalAmount() == null || sale.getTotalAmount().compareTo(java.math.BigDecimal.ZERO) == 0) {
+                sale.setTotalAmount(calculateTotal(saleItems));
+            }
+            
+            // Ensure discount and VAT fields are set
+            if (sale.getDiscountPercent() == null) sale.setDiscountPercent(java.math.BigDecimal.ZERO);
+            if (sale.getDiscountAmount() == null) sale.setDiscountAmount(java.math.BigDecimal.ZERO);
+            if (sale.getVatAmount() == null) sale.setVatAmount(java.math.BigDecimal.ZERO);
+            if (sale.getSubtotal() == null) sale.setSubtotal(java.math.BigDecimal.ZERO);
             
             // Save the sale first to get the sale ID
             ss.save(sale);
@@ -169,6 +178,69 @@ public class SaleServiceImpl extends UnicastRemoteObject implements SaleService 
             return saleDao.findSalesByCashier(cashier);
         } catch (Exception ex) {
             throw new RemoteException("Error finding sales: " + ex.getMessage());
+        }
+    }
+    
+    @Override
+    public java.math.BigDecimal getTotalRevenue() throws RemoteException {
+        try {
+            return saleDao.getTotalRevenue();
+        } catch (Exception ex) {
+            throw new RemoteException("Error getting total revenue: " + ex.getMessage());
+        }
+    }
+    
+    @Override
+    public java.math.BigDecimal getRevenueByDateRange(java.sql.Date startDate, java.sql.Date endDate) throws RemoteException {
+        try {
+            return saleDao.getRevenueByDateRange(startDate, endDate);
+        } catch (Exception ex) {
+            throw new RemoteException("Error getting revenue by date range: " + ex.getMessage());
+        }
+    }
+    
+    @Override
+    public java.math.BigDecimal getTotalInventoryValue() throws RemoteException {
+        try {
+            return saleDao.getTotalInventoryValue();
+        } catch (Exception ex) {
+            throw new RemoteException("Error getting total inventory value: " + ex.getMessage());
+        }
+    }
+    
+    @Override
+    public List<SaleItem> findSaleItemsBySaleId(Long saleId) throws RemoteException {
+        try {
+            return saleDao.findSaleItemsBySaleId(saleId);
+        } catch (Exception ex) {
+            throw new RemoteException("Error finding sale items: " + ex.getMessage());
+        }
+    }
+    
+    @Override
+    public java.util.Map<String, Object> getDashboardMetrics() throws RemoteException {
+        try {
+            return saleDao.getDashboardMetrics();
+        } catch (Exception ex) {
+            throw new RemoteException("Error getting dashboard metrics: " + ex.getMessage());
+        }
+    }
+    
+    @Override
+    public java.util.List<java.util.Map<String, Object>> getBestSellingProducts(int limit) throws RemoteException {
+        try {
+            return saleDao.getBestSellingProducts(limit);
+        } catch (Exception ex) {
+            throw new RemoteException("Error getting best selling products: " + ex.getMessage());
+        }
+    }
+    
+    @Override
+    public java.util.Map<String, java.math.BigDecimal> getCashierPerformance() throws RemoteException {
+        try {
+            return saleDao.getCashierPerformance();
+        } catch (Exception ex) {
+            throw new RemoteException("Error getting cashier performance: " + ex.getMessage());
         }
     }
 }

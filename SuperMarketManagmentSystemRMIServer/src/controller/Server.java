@@ -22,13 +22,31 @@ public class Server {
         LowStockNotificationPublisher publisher = null;
         
         try {
+            // Test Hibernate/Database connection first
+            System.out.println("\n--- Testing Database Connection ---");
+            try {
+                dao.HibernateUtil.getSessionFactory();
+                System.out.println("✓ Database connection successful");
+            } catch (Exception dbEx) {
+                System.err.println("✗ Database connection FAILED: " + dbEx.getMessage());
+                System.err.println("Please check:");
+                System.err.println("  1. PostgreSQL is running");
+                System.err.println("  2. Database 'supermarket_management_system_db' exists");
+                System.err.println("  3. Username/password in hibernate.cfg.xml is correct");
+                throw dbEx;
+            }
+            
             // Start embedded ActiveMQ broker first
             System.out.println("\n--- Starting ActiveMQ Broker ---");
-            activeMQBroker = new EmbeddedActiveMQBroker();
-            activeMQBroker.start();
-            
-            // Wait a moment for broker to fully start
-            Thread.sleep(2000);
+            try {
+                activeMQBroker = new EmbeddedActiveMQBroker();
+                activeMQBroker.start();
+                System.out.println("✓ ActiveMQ broker started");
+                Thread.sleep(2000);
+            } catch (Exception amqEx) {
+                System.out.println("⚠ ActiveMQ already running: " + amqEx.getMessage());
+                activeMQBroker = null;
+            }
             
             System.setProperty("java.rmi.server.hostname", "127.0.0.1");
             System.out.println("\n--- Starting RMI Services ---");
@@ -38,8 +56,12 @@ public class Server {
             
             // Start notification publisher
             System.out.println("\n--- Starting Notification System ---");
-            publisher = new LowStockNotificationPublisher();
-            System.out.println("✓ Notification publisher ready");
+            try {
+                publisher = new LowStockNotificationPublisher();
+                System.out.println("✓ Notification publisher ready");
+            } catch (Exception pubEx) {
+                System.out.println("⚠ Notification publisher failed: " + pubEx.getMessage());
+            }
             
             System.out.println("\n--- Binding RMI Services ---");
             theRegistry.rebind("user-service", new UserServiceImpl());
@@ -65,12 +87,16 @@ public class Server {
             System.out.println("   2. Start the client application");
             System.out.println("   3. Process sales to trigger low stock alerts");
             System.out.println(repeat("=", 60));
-            System.out.println("\nWaiting for client connections...\n");
+            System.out.println("\nServer is running. Press Ctrl+C to stop.\n");
+            
+            // Keep server running - THIS IS CRITICAL
+            Thread.currentThread().join();
             
         } catch (Exception ex) {
             System.err.println("\n*** ERROR: Server failed to start ***");
             System.err.println("Error: " + ex.getMessage());
             ex.printStackTrace();
+            System.err.println("\nServer will now exit.");
         }
     }
 }

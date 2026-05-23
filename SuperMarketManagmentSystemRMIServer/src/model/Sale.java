@@ -23,6 +23,18 @@ public class Sale implements Serializable {
     @Column(name = "total_amount", precision = 10, scale = 2)
     private BigDecimal totalAmount;
     
+    @Column(name = "subtotal", precision = 10, scale = 2)
+    private BigDecimal subtotal;
+    
+    @Column(name = "discount_percent", precision = 5, scale = 2)
+    private BigDecimal discountPercent;
+    
+    @Column(name = "discount_amount", precision = 10, scale = 2)
+    private BigDecimal discountAmount;
+    
+    @Column(name = "vat_amount", precision = 10, scale = 2)
+    private BigDecimal vatAmount;
+    
     @Column(name = "payment_method")
     private String paymentMethod;
     
@@ -34,6 +46,11 @@ public class Sale implements Serializable {
     private List<SaleItem> saleItems;
 
     public Sale() {
+        this.discountPercent = BigDecimal.ZERO;
+        this.discountAmount = BigDecimal.ZERO;
+        this.vatAmount = BigDecimal.ZERO;
+        this.subtotal = BigDecimal.ZERO;
+        this.cashier = new User();
     }
 
     public Sale(Long saleId, Date saleDate, BigDecimal totalAmount, String paymentMethod, User cashier, List<SaleItem> saleItems) {
@@ -91,5 +108,37 @@ public class Sale implements Serializable {
 
     public void setSaleItems(List<SaleItem> saleItems) {
         this.saleItems = saleItems;
+    }
+
+    public BigDecimal getSubtotal() {
+        return subtotal;
+    }
+
+    public void setSubtotal(BigDecimal subtotal) {
+        this.subtotal = subtotal;
+    }
+
+    public BigDecimal getDiscountPercent() {
+        return discountPercent;
+    }
+
+    public void setDiscountPercent(BigDecimal discountPercent) {
+        this.discountPercent = discountPercent;
+    }
+
+    public BigDecimal getDiscountAmount() {
+        return discountAmount;
+    }
+
+    public void setDiscountAmount(BigDecimal discountAmount) {
+        this.discountAmount = discountAmount;
+    }
+
+    public BigDecimal getVatAmount() {
+        return vatAmount;
+    }
+
+    public void setVatAmount(BigDecimal vatAmount) {
+        this.vatAmount = vatAmount;
     }
 }

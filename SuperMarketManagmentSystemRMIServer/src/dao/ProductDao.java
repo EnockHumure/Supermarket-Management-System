@@ -21,6 +21,32 @@ public class ProductDao {
         return null;
     }
     
+    // Generate next barcode in format SIM + (last_product_id + 100)
+    public String generateNextBarcode() {
+        Session ss = null;
+        try {
+            ss = HibernateUtil.getSessionFactory().openSession();
+            // Get the highest product ID
+            Query query = ss.createQuery("SELECT MAX(p.productId) FROM Product p");
+            Long maxId = (Long) query.uniqueResult();
+            
+            if (maxId == null) {
+                maxId = 0L; // First product
+            }
+            
+            // Generate barcode: SIM + (maxId + 100)
+            String barcode = "SIM" + (maxId + 100);
+            return barcode;
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return "SIM" + System.currentTimeMillis(); // Fallback
+        } finally {
+            if (ss != null && ss.isOpen()) {
+                ss.close();
+            }
+        }
+    }
+    
     public Product updateProduct(Product productObj) {
         try {
             Session ss = HibernateUtil.getSessionFactory().openSession();
@@ -51,7 +77,11 @@ public class ProductDao {
                 throw new Exception("Cannot delete product. " + saleItemCount + " sale item(s) reference this product.");
             }
             
-            ss.delete(productObj);
+            // Fetch the product from database first
+            Product toDelete = (Product) ss.get(Product.class, productObj.getProductId());
+            if (toDelete != null) {
+                ss.delete(toDelete);
+            }
             tr.commit();
             ss.close();
             return productObj;
