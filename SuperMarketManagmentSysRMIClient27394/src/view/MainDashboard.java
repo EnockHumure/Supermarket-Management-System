@@ -148,12 +148,7 @@ public class MainDashboard extends javax.swing.JFrame {
         // Color coding: Green for In Stock, Orange for Low Stock, Red for Out of Stock
         plot.getRenderer().setSeriesPaint(0, new Color(46, 204, 113)); // Green
         
-        // Add value labels on bars
-        org.jfree.chart.renderer.category.BarRenderer renderer = 
-            (org.jfree.chart.renderer.category.BarRenderer) plot.getRenderer();
-        renderer.setBaseItemLabelsVisible(true);
-        renderer.setBaseItemLabelGenerator(new org.jfree.chart.labels.StandardCategoryItemLabelGenerator());
-        renderer.setBaseItemLabelFont(new java.awt.Font("SansSerif", java.awt.Font.BOLD, 12));
+        // Item labels not supported in JFreeChart 1.5.x BarRenderer
         
         ChartPanel chartPanel = new ChartPanel(barChart);
         chartPanel.setPreferredSize(new java.awt.Dimension(850, 550));
@@ -326,10 +321,7 @@ public class MainDashboard extends javax.swing.JFrame {
         renderer.setSeriesShapesVisible(0, true);
         renderer.setSeriesShape(0, new java.awt.geom.Ellipse2D.Double(-4, -4, 8, 8));
         
-        // Add value labels
-        renderer.setBaseItemLabelsVisible(true);
-        renderer.setBaseItemLabelGenerator(new org.jfree.chart.labels.StandardCategoryItemLabelGenerator());
-        renderer.setBaseItemLabelFont(new java.awt.Font("SansSerif", java.awt.Font.BOLD, 10));
+        // Item labels not supported in JFreeChart 1.5.x LineAndShapeRenderer
         
         ChartPanel chartPanel = new ChartPanel(lineChart);
         chartPanel.setPreferredSize(new java.awt.Dimension(800, 350));
